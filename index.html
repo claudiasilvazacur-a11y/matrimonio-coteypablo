@@ -9,42 +9,65 @@
     .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 40px auto; }
     input[type="file"] { display: none; }
     .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
-    .btn { background: #4285F4; color: white; padding: 15px 20px; border-radius: 8px; cursor: pointer; display: block; font-size: 16px; font-weight: bold; transition: background 0.2s; }
-    .btn-secondary { background: #34A853; }
+    .btn { background: #4285F4; color: white; padding: 15px 20px; border-radius: 8px; cursor: pointer; display: block; font-size: 16px; font-weight: bold; text-decoration: none; border: none; transition: background 0.2s; }
+    .btn-green { background: #34A853; }
+    .btn-dark { background: #202124; }
+    .btn-outline { background: white; color: #4285F4; border: 2px solid #4285F4; }
     .btn.disabled { background: #b0bec5; pointer-events: none; }
-    #estado { margin-top: 20px; font-weight: bold; line-height: 1.5; word-break: break-word; }
+    #estado { margin-top: 20px; font-weight: bold; line-height: 1.5; word-break: break-word; font-size: 16px; }
     .error-box { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px; text-align: left; font-family: monospace; }
   </style>
 </head>
 <body>
   <div class="card">
     <h2>📸 Comparte tus fotos</h2>
-    <p>Toma una foto en este momento o selecciona varias desde tu galería.</p>
+    <p id="subtitulo">Toma una foto en este momento o selecciona varias desde tu galería.</p>
     
-    <div class="btn-group" id="grupoBotones">
+    <!-- Controles iniciales de subida -->
+    <div class="btn-group" id="controlesSubida">
       <label class="btn" id="btnCamara">
         📷 Tomar foto ahora
         <input type="file" id="archivoCamara" accept="image/*" capture="environment" onchange="procesarArchivos(this)">
       </label>
 
-      <label class="btn btn-secondary" id="btnGaleria">
+      <label class="btn btn-green" id="btnGaleria">
         🖼️ Elegir de la galería
         <input type="file" id="archivoGaleria" accept="image/*" multiple onchange="procesarArchivos(this)">
       </label>
+
+      <a href="galeria.html" class="btn btn-outline" style="margin-top: 8px;">👀 Ver álbum actual</a>
     </div>
 
+    <!-- Estado de progreso / éxito -->
     <div id="estado"></div>
     <div id="detalleError" class="error-box" style="display: none;"></div>
+
+    <!-- Opciones posteriores a la subida -->
+    <div class="btn-group" id="opcionesPostSubida" style="display: none;">
+      <button class="btn" onclick="reiniciarFormulario()">➕ Añadir más archivos</button>
+      <a href="galeria.html" class="btn btn-dark">🖼️ Ver galería</a>
+    </div>
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxYokVKO1njGjW4DODaNbHepRmf-WjNYxJKcj2-aLwpS6efo6VgKGHhakG51JA1WcbY/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSjprB95VK-ywTb8fj1C9grSBJAL8L2amZ4GBZ5IigZduPtCMs-lBgivcYhLQBivlx/exec';
     const MAX_DIMENSION = 1920;
     const CALIDAD_JPEG = 0.82;
+
+    function reiniciarFormulario() {
+      document.getElementById('opcionesPostSubida').style.display = 'none';
+      document.getElementById('controlesSubida').style.display = 'flex';
+      document.getElementById('subtitulo').style.display = 'block';
+      document.getElementById('estado').innerText = '';
+      document.getElementById('detalleError').style.display = 'none';
+    }
 
     async function procesarArchivos(input) {
       const estado = document.getElementById('estado');
       const detalleError = document.getElementById('detalleError');
+      const controlesSubida = document.getElementById('controlesSubida');
+      const opcionesPostSubida = document.getElementById('opcionesPostSubida');
+      const subtitulo = document.getElementById('subtitulo');
       const btnCamara = document.getElementById('btnCamara');
       const btnGaleria = document.getElementById('btnGaleria');
       const archivos = Array.from(input.files);
@@ -63,7 +86,6 @@
           const base64Comprimido = await comprimirImagen(file);
           
           estado.innerText = `Subiendo foto ${subidas + 1} de ${archivos.length}... ⏳`;
-          // Si viene de la cámara suele llamarse "image.jpg", agregamos marca de tiempo para evitar nombres repetidos
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const baseName = file.name.replace(/\.[^/.]+$/, "");
           const nombreFinal = `${baseName}_${timestamp}.jpg`;
@@ -84,7 +106,7 @@
           try {
             resultado = JSON.parse(textoRespuesta);
           } catch (parseErr) {
-            throw new Error(`Google no devolvió JSON (HTTP ${respuesta.status}). Respuesta: ${textoRespuesta.substring(0, 200)}...`);
+            throw new Error(`Google no devolvió JSON (HTTP ${respuesta.status}).`);
           }
 
           if (!resultado.exito) {
@@ -103,10 +125,14 @@
         }
       }
 
-      estado.innerText = `✅ ¡Listo! Se subieron ${subidas} foto(s) al álbum.`;
+      // Ocultar controles de subida y mostrar las 2 opciones solicitadas
       input.value = '';
       btnCamara.classList.remove('disabled');
       btnGaleria.classList.remove('disabled');
+      controlesSubida.style.display = 'none';
+      subtitulo.style.display = 'none';
+      estado.innerText = `✅ ¡Listo! Se subieron ${subidas} foto(s) al álbum.`;
+      opcionesPostSubida.style.display = 'flex';
     }
 
     function comprimirImagen(file) {
