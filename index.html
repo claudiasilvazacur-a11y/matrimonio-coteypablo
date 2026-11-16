@@ -8,15 +8,16 @@
     body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; color: #333; margin: 0; }
     .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 40px auto; }
     input[type="file"] { display: none; }
-    .btn { background: #4285F4; color: white; padding: 15px 25px; border-radius: 8px; cursor: pointer; display: inline-block; font-size: 16px; font-weight: bold; margin-top: 15px; }
-    #estado { margin-top: 20px; font-weight: bold; }
+    .btn { background: #4285F4; color: white; padding: 15px 25px; border-radius: 8px; cursor: pointer; display: inline-block; font-size: 16px; font-weight: bold; margin-top: 15px; transition: background 0.2s; }
+    .btn.disabled { background: #a0c1f7; pointer-events: none; }
+    #estado { margin-top: 20px; font-weight: bold; line-height: 1.5; }
   </style>
 </head>
 <body>
   <div class="card">
     <h2>📸 Comparte tus fotos</h2>
     <p>Selecciona o toma una foto para subirla directamente al álbum.</p>
-    <label class="btn">
+    <label class="btn" id="btnSubir">
       Elegir o tomar foto
       <input type="file" id="archivo" accept="image/*" multiple onchange="procesarArchivos()">
     </label>
@@ -25,46 +26,84 @@
 
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxYokVKO1njGjW4DODaNbHepRmf-WjNYxJKcj2-aLwpS6efo6VgKGHhakG51JA1WcbY/exec';
+    const MAX_DIMENSION = 1920; // Resolución máxima (Full HD)
+    const CALIDAD_JPEG = 0.82;  // Calidad de compresión (0.1 a 1.0)
 
     async function procesarArchivos() {
       const input = document.getElementById('archivo');
       const estado = document.getElementById('estado');
+      const btn = document.getElementById('btnSubir');
       const archivos = Array.from(input.files);
       
       if (archivos.length === 0) return;
-      estado.innerText = `Subiendo ${archivos.length} foto(s)... ⏳`;
+      
+      btn.classList.add('disabled');
       let subidas = 0;
 
       for (const file of archivos) {
         try {
-          const base64Data = await leerArchivo(file);
+          estado.innerText = `Optimizando foto ${subidas + 1} de ${archivos.length}... 🔄`;
+          const base64Comprimido = await comprimirImagen(file);
+          
+          estado.innerText = `Subiendo foto ${subidas + 1} de ${archivos.length}... ⏳`;
+          const nombreFinal = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+
           await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
-              base64Data: base64Data,
-              fileName: file.name,
-              mimeType: file.type
+              base64Data: base64Comprimido,
+              fileName: nombreFinal,
+              mimeType: 'image/jpeg'
             })
           });
+
           subidas++;
-          estado.innerText = `Subiendo (${subidas}/${archivos.length})... ⏳`;
         } catch (err) {
-          estado.innerText = '❌ Error al subir: ' + err.message;
+          estado.innerText = `❌ Error con "${file.name}": ${err.message}`;
+          btn.classList.remove('disabled');
           return;
         }
       }
 
-      estado.innerText = '✅ ¡Todas las fotos se subieron con éxito!';
+      estado.innerText = `✅ ¡Listo! Se subieron ${subidas} foto(s) al álbum.`;
       input.value = '';
+      btn.classList.remove('disabled');
     }
 
-    function leerArchivo(file) {
+    function comprimirImagen(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result);
-        reader.onerror = e => reject(e);
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            let width = img.width;
+            let height = img.height;
+
+            // Calcular nuevas dimensiones manteniendo la proporción
+            if (width > height && width > MAX_DIMENSION) {
+              height = Math.round((height * MAX_DIMENSION) / width);
+              width = MAX_DIMENSION;
+            } else if (height > MAX_DIMENSION) {
+              width = Math.round((width * MAX_DIMENSION) / height);
+              height = MAX_DIMENSION;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Exportar como JPEG comprimido en Base64
+            const dataUrl = canvas.toDataURL('image/jpeg', CALIDAD_JPEG);
+            resolve(dataUrl);
+          };
+          img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+          img.src = event.target.result;
+        };
+        reader.onerror = () => reject(new Error('Error al cargar el archivo.'));
         reader.readAsDataURL(file);
       });
     }
