@@ -8,8 +8,10 @@
     body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; color: #333; margin: 0; }
     .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 40px auto; }
     input[type="file"] { display: none; }
-    .btn { background: #4285F4; color: white; padding: 15px 25px; border-radius: 8px; cursor: pointer; display: inline-block; font-size: 16px; font-weight: bold; margin-top: 15px; transition: background 0.2s; }
-    .btn.disabled { background: #a0c1f7; pointer-events: none; }
+    .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+    .btn { background: #4285F4; color: white; padding: 15px 20px; border-radius: 8px; cursor: pointer; display: block; font-size: 16px; font-weight: bold; transition: background 0.2s; }
+    .btn-secondary { background: #34A853; }
+    .btn.disabled { background: #b0bec5; pointer-events: none; }
     #estado { margin-top: 20px; font-weight: bold; line-height: 1.5; word-break: break-word; }
     .error-box { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px; text-align: left; font-family: monospace; }
   </style>
@@ -17,11 +19,20 @@
 <body>
   <div class="card">
     <h2>📸 Comparte tus fotos</h2>
-    <p>Selecciona o toma una foto para subirla directamente al álbum.</p>
-    <label class="btn" id="btnSubir">
-      Elegir o tomar foto
-      <input type="file" id="archivo" accept="image/*" multiple onchange="procesarArchivos()">
-    </label>
+    <p>Toma una foto en este momento o selecciona varias desde tu galería.</p>
+    
+    <div class="btn-group" id="grupoBotones">
+      <label class="btn" id="btnCamara">
+        📷 Tomar foto ahora
+        <input type="file" id="archivoCamara" accept="image/*" capture="environment" onchange="procesarArchivos(this)">
+      </label>
+
+      <label class="btn btn-secondary" id="btnGaleria">
+        🖼️ Elegir de la galería
+        <input type="file" id="archivoGaleria" accept="image/*" multiple onchange="procesarArchivos(this)">
+      </label>
+    </div>
+
     <div id="estado"></div>
     <div id="detalleError" class="error-box" style="display: none;"></div>
   </div>
@@ -31,16 +42,17 @@
     const MAX_DIMENSION = 1920;
     const CALIDAD_JPEG = 0.82;
 
-    async function procesarArchivos() {
-      const input = document.getElementById('archivo');
+    async function procesarArchivos(input) {
       const estado = document.getElementById('estado');
       const detalleError = document.getElementById('detalleError');
-      const btn = document.getElementById('btnSubir');
+      const btnCamara = document.getElementById('btnCamara');
+      const btnGaleria = document.getElementById('btnGaleria');
       const archivos = Array.from(input.files);
       
       if (archivos.length === 0) return;
       
-      btn.classList.add('disabled');
+      btnCamara.classList.add('disabled');
+      btnGaleria.classList.add('disabled');
       detalleError.style.display = 'none';
       detalleError.innerText = '';
       let subidas = 0;
@@ -51,7 +63,10 @@
           const base64Comprimido = await comprimirImagen(file);
           
           estado.innerText = `Subiendo foto ${subidas + 1} de ${archivos.length}... ⏳`;
-          const nombreFinal = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+          // Si viene de la cámara suele llamarse "image.jpg", agregamos marca de tiempo para evitar nombres repetidos
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const baseName = file.name.replace(/\.[^/.]+$/, "");
+          const nombreFinal = `${baseName}_${timestamp}.jpg`;
 
           const respuesta = await fetch(SCRIPT_URL, {
             method: 'POST',
@@ -69,7 +84,7 @@
           try {
             resultado = JSON.parse(textoRespuesta);
           } catch (parseErr) {
-            throw new Error(`Google no devolvió JSON (HTTP ${respuesta.status}). Respuesta recibida: ${textoRespuesta.substring(0, 200)}...`);
+            throw new Error(`Google no devolvió JSON (HTTP ${respuesta.status}). Respuesta: ${textoRespuesta.substring(0, 200)}...`);
           }
 
           if (!resultado.exito) {
@@ -81,7 +96,8 @@
           estado.innerText = `❌ Falló la subida de "${file.name}"`;
           detalleError.style.display = 'block';
           detalleError.innerText = `Detalle técnico:\n${err.message}`;
-          btn.classList.remove('disabled');
+          btnCamara.classList.remove('disabled');
+          btnGaleria.classList.remove('disabled');
           input.value = '';
           return;
         }
@@ -89,7 +105,8 @@
 
       estado.innerText = `✅ ¡Listo! Se subieron ${subidas} foto(s) al álbum.`;
       input.value = '';
-      btn.classList.remove('disabled');
+      btnCamara.classList.remove('disabled');
+      btnGaleria.classList.remove('disabled');
     }
 
     function comprimirImagen(file) {
