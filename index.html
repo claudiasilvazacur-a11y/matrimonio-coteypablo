@@ -10,7 +10,8 @@
     input[type="file"] { display: none; }
     .btn { background: #4285F4; color: white; padding: 15px 25px; border-radius: 8px; cursor: pointer; display: inline-block; font-size: 16px; font-weight: bold; margin-top: 15px; transition: background 0.2s; }
     .btn.disabled { background: #a0c1f7; pointer-events: none; }
-    #estado { margin-top: 20px; font-weight: bold; line-height: 1.5; }
+    #estado { margin-top: 20px; font-weight: bold; line-height: 1.5; word-break: break-word; }
+    .error-box { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px; text-align: left; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -22,22 +23,26 @@
       <input type="file" id="archivo" accept="image/*" multiple onchange="procesarArchivos()">
     </label>
     <div id="estado"></div>
+    <div id="detalleError" class="error-box" style="display: none;"></div>
   </div>
 
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxYokVKO1njGjW4DODaNbHepRmf-WjNYxJKcj2-aLwpS6efo6VgKGHhakG51JA1WcbY/exec';
-    const MAX_DIMENSION = 1920; // Resolución máxima (Full HD)
-    const CALIDAD_JPEG = 0.82;  // Calidad de compresión (0.1 a 1.0)
+    const MAX_DIMENSION = 1920;
+    const CALIDAD_JPEG = 0.82;
 
     async function procesarArchivos() {
       const input = document.getElementById('archivo');
       const estado = document.getElementById('estado');
+      const detalleError = document.getElementById('detalleError');
       const btn = document.getElementById('btnSubir');
       const archivos = Array.from(input.files);
       
       if (archivos.length === 0) return;
       
       btn.classList.add('disabled');
+      detalleError.style.display = 'none';
+      detalleError.innerText = '';
       let subidas = 0;
 
       for (const file of archivos) {
@@ -48,9 +53,8 @@
           estado.innerText = `Subiendo foto ${subidas + 1} de ${archivos.length}... ⏳`;
           const nombreFinal = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
 
-          await fetch(SCRIPT_URL, {
+          const respuesta = await fetch(SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               base64Data: base64Comprimido,
@@ -59,10 +63,26 @@
             })
           });
 
+          const textoRespuesta = await respuesta.text();
+          let resultado;
+
+          try {
+            resultado = JSON.parse(textoRespuesta);
+          } catch (parseErr) {
+            throw new Error(`Google no devolvió JSON (HTTP ${respuesta.status}). Respuesta recibida: ${textoRespuesta.substring(0, 200)}...`);
+          }
+
+          if (!resultado.exito) {
+            throw new Error(resultado.error || 'Error desconocido en Apps Script.');
+          }
+
           subidas++;
         } catch (err) {
-          estado.innerText = `❌ Error con "${file.name}": ${err.message}`;
+          estado.innerText = `❌ Falló la subida de "${file.name}"`;
+          detalleError.style.display = 'block';
+          detalleError.innerText = `Detalle técnico:\n${err.message}`;
           btn.classList.remove('disabled');
+          input.value = '';
           return;
         }
       }
@@ -81,7 +101,6 @@
             let width = img.width;
             let height = img.height;
 
-            // Calcular nuevas dimensiones manteniendo la proporción
             if (width > height && width > MAX_DIMENSION) {
               height = Math.round((height * MAX_DIMENSION) / width);
               width = MAX_DIMENSION;
@@ -96,14 +115,12 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Exportar como JPEG comprimido en Base64
-            const dataUrl = canvas.toDataURL('image/jpeg', CALIDAD_JPEG);
-            resolve(dataUrl);
+            resolve(canvas.toDataURL('image/jpeg', CALIDAD_JPEG));
           };
-          img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+          img.onerror = () => reject(new Error('No se pudo leer la imagen en el navegador.'));
           img.src = event.target.result;
         };
-        reader.onerror = () => reject(new Error('Error al cargar el archivo.'));
+        reader.onerror = () => reject(new Error('Error al leer el archivo local.'));
         reader.readAsDataURL(file);
       });
     }
