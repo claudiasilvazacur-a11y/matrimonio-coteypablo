@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galería del Evento</title>
+  <style>
+    body { font-family: sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 15px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; position: sticky; top: 10px; z-index: 10; }
+    .topbar h2 { margin: 0; font-size: 18px; }
+    .btn-volver { background: #4285F4; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; }
+    #estadoGaleria { text-align: center; color: #666; margin: 40px 0; font-size: 16px; }
+    
+    /* Cuadrícula responsiva */
+    .grid-galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    @media (min-width: 600px) {
+      .grid-galeria { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    }
+    .foto-item { position: relative; width: 100%; padding-top: 100%; overflow: hidden; border-radius: 8px; background: #e0e0e0; cursor: pointer; }
+    .foto-item img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; }
+    .foto-item img:hover { transform: scale(1.04); }
+
+    /* Visor ampliado */
+    .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.94); align-items: center; justify-content: center; flex-direction: column; gap: 14px; user-select: none; }
+    .modal-header { position: absolute; top: 16px; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; color: white; font-size: 15px; font-weight: bold; }
+    .modal-close { font-size: 36px; cursor: pointer; line-height: 1; padding: 0 6px; }
+    
+    .modal-body { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 74%; }
+    .modal-body img { max-width: 88%; max-height: 100%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); object-fit: contain; }
+    
+    /* Botones de navegación lateral */
+    .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.18); color: white; border: none; font-size: 26px; width: 46px; height: 46px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; backdrop-filter: blur(4px); }
+    .nav-btn:hover { background: rgba(255,255,255,0.35); }
+    .nav-prev { left: 12px; }
+    .nav-next { right: 12px; }
+
+    .btn-descargar { background: #34A853; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: background 0.2s; }
+    .btn-descargar:hover { background: #2d9248; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <h2>🖼️ Álbum (<span id="totalFotos">0</span>)</h2>
+      <a href="index.html" class="btn-volver">➕ Subir fotos</a>
+    </div>
+
+    <div id="estadoGaleria">Cargando todas las fotos del álbum... ⏳</div>
+    <div class="grid-galeria" id="galeria"></div>
+  </div>
+
+  <!-- Visor ampliado con navegación y descarga -->
+  <div class="modal" id="visorModal" onclick="cerrarModal()">
+    <div class="modal-header" onclick="event.stopPropagation()">
+      <span id="contadorModal">1 / 1</span>
+      <span class="modal-close" onclick="cerrarModal()">&times;</span>
+    </div>
+
+    <div class="modal-body">
+      <button class="nav-btn nav-prev" onclick="cambiarFoto(-1, event)" aria-label="Foto anterior">&#10094;</button>
+      <img id="imagenAmpliada" src="" alt="Foto ampliada" onclick="event.stopPropagation()">
+      <button class="nav-btn nav-next" onclick="cambiarFoto(1, event)" aria-label="Foto siguiente">&#10095;</button>
+    </div>
+
+    <a id="enlaceDescarga" href="#" class="btn-descargar" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+      ⬇️ Descargar foto original
+    </a>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSjprB95VK-ywTb8fj1C9grSBJAL8L2amZ4GBZ5IigZduPtCMs-lBgivcYhLQBivlx/exec';
+    let listaFotos = [];
+    let indiceActual = 0;
+
+    window.addEventListener('DOMContentLoaded', cargarTodasLasFotos);
+
+    // Soporte para teclas de flecha y Escape en computadora
+    document.addEventListener('keydown', function(e) {
+      const modal = document.getElementById('visorModal');
+      if (modal.style.display !== 'flex') return;
+      if (e.key === 'ArrowLeft') cambiarFoto(-1);
+      if (e.key === 'ArrowRight') cambiarFoto(1);
+      if (e.key === 'Escape') cerrarModal();
+    });
+
+    async function cargarTodasLasFotos() {
+      const galeria = document.getElementById('galeria');
+      const estado = document.getElementById('estadoGaleria');
+      const total = document.getElementById('totalFotos');
+
+      try {
+        const respuesta = await fetch(SCRIPT_URL);
+        const datos = await respuesta.json();
+
+        if (!datos.exito) throw new Error(datos.error);
+
+        listaFotos = datos.fotos;
+        total.innerText = listaFotos.length;
+
+        if (listaFotos.length === 0) {
+          estado.innerText = 'Aún no hay fotos subidas. ¡Pulsa "+ Subir fotos" para empezar!';
+          return;
+        }
+
+        estado.style.display = 'none';
+
+        listaFotos.forEach((foto, index) => {
+          const div = document.createElement('div');
+          div.className = 'foto-item';
+          div.onclick = () => abrirModal(index);
+
+          const img = document.createElement('img');
+          img.src = foto.url;
+          img.alt = foto.nombre;
+          img.loading = 'lazy';
+
+          div.appendChild(img);
+          galeria.appendChild(div);
+        });
+      } catch (err) {
+        estado.innerText = '❌ Error al cargar la galería: ' + err.message;
+      }
+    }
+
+    function abrirModal(index) {
+      indiceActual = index;
+      actualizarVistaModal();
+      document.getElementById('visorModal').style.display = 'flex';
+    }
+
+    function cambiarFoto(direccion, event) {
+      if (event) event.stopPropagation();
+      if (listaFotos.length === 0) return;
+
+      // Navegación circular (al pasar de la última vuelve a la primera y viceversa)
+      indiceActual = (indiceActual + direccion + listaFotos.length) % listaFotos.length;
+      actualizarVistaModal();
+    }
+
+    function actualizarVistaModal() {
+      const foto = listaFotos[indiceActual];
+      const img = document.getElementById('imagenAmpliada');
+      const btnDescarga = document.getElementById('enlaceDescarga');
+      const contador = document.getElementById('contadorModal');
+
+      img.src = `https://drive.google.com/thumbnail?id=${foto.id}&sz=w1600`;
+      btnDescarga.href = `https://drive.google.com/uc?export=download&id=${foto.id}`;
+      btnDescarga.setAttribute('download', foto.nombre || 'foto-album.jpg');
+      contador.innerText = `${indiceActual + 1} / ${listaFotos.length}`;
+    }
+
+    function cerrarModal() {
+      document.getElementById('visorModal').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
