@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@
   <title>Galería del Evento</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 15px; }
-    .container { max-width: 900px; margin: 0 auto; }
+    .container { max-width: 900px; margin: 0 auto; padding-bottom: 40px; }
     .topbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; position: sticky; top: 10px; z-index: 10; }
     .topbar h2 { margin: 0; font-size: 18px; }
     .btn-volver { background: #4285F4; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; }
@@ -18,8 +18,15 @@
       .grid-galeria { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
     }
     .foto-item { position: relative; width: 100%; padding-top: 100%; overflow: hidden; border-radius: 8px; background: #e0e0e0; cursor: pointer; }
-    .foto-item img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; }
+    .foto-item img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s, opacity 0.3s; opacity: 0; }
+    .foto-item img.cargada { opacity: 1; }
     .foto-item img:hover { transform: scale(1.04); }
+
+    /* Botón de carga por bloques */
+    .paginacion-box { text-align: center; margin-top: 25px; }
+    .btn-cargar-mas { background: white; color: #333; border: 2px solid #ccc; padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+    .btn-cargar-mas:hover { border-color: #4285F4; color: #4285F4; }
+    .info-paginacion { font-size: 13px; color: #777; margin-top: 8px; }
 
     /* Visor ampliado */
     .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.94); align-items: center; justify-content: center; flex-direction: column; gap: 14px; user-select: none; }
@@ -46,8 +53,13 @@
       <a href="index.html" class="btn-volver">➕ Subir fotos</a>
     </div>
 
-    <div id="estadoGaleria">Cargando todas las fotos del álbum... ⏳</div>
+    <div id="estadoGaleria">Cargando álbum... ⏳</div>
     <div class="grid-galeria" id="galeria"></div>
+
+    <div class="paginacion-box" id="contenedorPaginacion" style="display: none;">
+      <button class="btn-cargar-mas" id="btnCargarMas" onclick="renderizarSiguienteBloque()">⬇️ Cargar más fotos</button>
+      <div class="info-paginacion" id="textoProgreso"></div>
+    </div>
   </div>
 
   <!-- Visor ampliado con navegación y descarga -->
@@ -70,12 +82,24 @@
 
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSjprB95VK-ywTb8fj1C9grSBJAL8L2amZ4GBZ5IigZduPtCMs-lBgivcYhLQBivlx/exec';
+    const FOTOS_POR_BLOQUE = 24; // Cantidad de fotos que se renderizan por tanda
+
     let listaFotos = [];
+    let fotosMostradas = 0;
     let indiceActual = 0;
 
-    window.addEventListener('DOMContentLoaded', cargarTodasLasFotos);
+    window.addEventListener('DOMContentLoaded', cargarListaDeFotos);
 
-    // Soporte para teclas de flecha y Escape en computadora
+    // Carga automática adicional cuando el usuario llega cerca del final de la página
+    window.addEventListener('scroll', () => {
+      if (fotosMostradas >= listaFotos.length) return;
+      const cercaDelFinal = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 400);
+      if (cercaDelFinal) {
+        renderizarSiguienteBloque();
+      }
+    });
+
+    // Atajos de teclado en el visor ampliado
     document.addEventListener('keydown', function(e) {
       const modal = document.getElementById('visorModal');
       if (modal.style.display !== 'flex') return;
@@ -84,8 +108,7 @@
       if (e.key === 'Escape') cerrarModal();
     });
 
-    async function cargarTodasLasFotos() {
-      const galeria = document.getElementById('galeria');
+    async function cargarListaDeFotos() {
       const estado = document.getElementById('estadoGaleria');
       const total = document.getElementById('totalFotos');
 
@@ -104,22 +127,51 @@
         }
 
         estado.style.display = 'none';
-
-        listaFotos.forEach((foto, index) => {
-          const div = document.createElement('div');
-          div.className = 'foto-item';
-          div.onclick = () => abrirModal(index);
-
-          const img = document.createElement('img');
-          img.src = foto.url;
-          img.alt = foto.nombre;
-          img.loading = 'lazy';
-
-          div.appendChild(img);
-          galeria.appendChild(div);
-        });
+        renderizarSiguienteBloque();
       } catch (err) {
         estado.innerText = '❌ Error al cargar la galería: ' + err.message;
+      }
+    }
+
+    function renderizarSiguienteBloque() {
+      if (fotosMostradas >= listaFotos.length) return;
+
+      const galeria = document.getElementById('galeria');
+      const contenedorPag = document.getElementById('contenedorPaginacion');
+      const btnCargarMas = document.getElementById('btnCargarMas');
+      const textoProgreso = document.getElementById('textoProgreso');
+
+      const limite = Math.min(fotosMostradas + FOTOS_POR_BLOQUE, listaFotos.length);
+      const fragmento = document.createDocumentFragment();
+
+      for (let i = fotosMostradas; i < limite; i++) {
+        const foto = listaFotos[i];
+        const div = document.createElement('div');
+        div.className = 'foto-item';
+        div.onclick = () => abrirModal(i);
+
+        const img = document.createElement('img');
+        // Miniatura ligera de 400px para que la cuadrícula abra rápido en datos móviles
+        img.src = `https://drive.google.com/thumbnail?id=${foto.id}&sz=w400`;
+        img.alt = foto.nombre;
+        img.loading = 'lazy';
+        img.onload = () => img.classList.add('cargada');
+
+        div.appendChild(img);
+        fragmento.appendChild(div);
+      }
+
+      galeria.appendChild(fragmento);
+      fotosMostradas = limite;
+
+      // Actualizar controles de paginación
+      contenedorPag.style.display = 'block';
+      textoProgreso.innerText = `Mostrando ${fotosMostradas} de ${listaFotos.length} fotos`;
+
+      if (fotosMostradas >= listaFotos.length) {
+        btnCargarMas.style.display = 'none';
+      } else {
+        btnCargarMas.style.display = 'inline-block';
       }
     }
 
@@ -133,7 +185,6 @@
       if (event) event.stopPropagation();
       if (listaFotos.length === 0) return;
 
-      // Navegación circular (al pasar de la última vuelve a la primera y viceversa)
       indiceActual = (indiceActual + direccion + listaFotos.length) % listaFotos.length;
       actualizarVistaModal();
     }
@@ -144,6 +195,7 @@
       const btnDescarga = document.getElementById('enlaceDescarga');
       const contador = document.getElementById('contadorModal');
 
+      // Alta resolución (1600px) solo al abrir una foto individual
       img.src = `https://drive.google.com/thumbnail?id=${foto.id}&sz=w1600`;
       btnDescarga.href = `https://drive.google.com/uc?export=download&id=${foto.id}`;
       btnDescarga.setAttribute('download', foto.nombre || 'foto-album.jpg');
