@@ -3,68 +3,365 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subir Fotos al Álbum</title>
+  <title>Matrimonio Pablo y María José — Álbum de Fotos</title>
+  <!-- Tipografías inspiradas en la invitación -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Great+Vibes&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 16px; background: #f4f4f9; color: #333; margin: 0; }
-    .card { background: white; padding: 25px 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 440px; margin: 20px auto; }
+    :root {
+      --bg-crema: #FDF7F7;
+      --rosa-suave: #F6E2E6;
+      --rosa-borde: #EBC9D0;
+      --rosa-principal: #D48195;
+      --rosa-oscuro: #B86277;
+      --salvia: #8FA691;
+      --salvia-oscuro: #738C75;
+      --texto-oscuro: #2C2A29;
+      --texto-suave: #6D6566;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      text-align: center;
+      padding: 16px;
+      background-color: var(--bg-crema);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(244, 198, 208, 0.28) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(244, 198, 208, 0.28) 0%, transparent 40%);
+      color: var(--texto-oscuro);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Decoración floral de esquinas */
+    .sakura-corner {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.85;
+    }
+    .sakura-top-right { top: -10px; right: -10px; width: 170px; }
+    .sakura-bottom-left { bottom: -10px; left: -10px; width: 170px; transform: rotate(180deg); }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(6px);
+      padding: 32px 24px;
+      border-radius: 20px;
+      border: 1.5px solid var(--rosa-borde);
+      box-shadow: 0 12px 32px rgba(184, 98, 119, 0.10);
+      max-width: 440px;
+      width: 100%;
+      margin: 15px auto;
+    }
+
+    /* Marco interior estilo tarjeta de boda */
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 1px solid rgba(235, 201, 208, 0.55);
+      border-radius: 14px;
+      pointer-events: none;
+    }
+
+    .cat-header {
+      margin: 0 auto 6px;
+      width: 110px;
+      height: 68px;
+    }
+
+    .nombres-novios {
+      font-family: 'Great Vibes', cursive;
+      font-size: 44px;
+      font-weight: 400;
+      color: var(--texto-oscuro);
+      margin: 4px 0 0;
+      line-height: 1.1;
+    }
+
+    .subtitulo-boda {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--rosa-oscuro);
+      margin: 4px 0 12px;
+      text-transform: uppercase;
+    }
+
+    .instruccion {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      color: var(--texto-suave);
+      line-height: 1.4;
+      margin: 0 0 18px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 10px 0 18px;
+      color: var(--rosa-principal);
+      font-size: 14px;
+    }
+    .divider::before, .divider::after {
+      content: "";
+      height: 1px;
+      width: 55px;
+      background: linear-gradient(90deg, transparent, var(--rosa-borde), transparent);
+    }
+
     input[type="file"] { display: none; }
-    .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
-    .btn { background: #4285F4; color: white; padding: 14px 18px; border-radius: 8px; cursor: pointer; display: block; font-size: 16px; font-weight: bold; text-decoration: none; border: none; transition: background 0.2s; }
-    .btn-green { background: #34A853; }
-    .btn-dark { background: #202124; }
-    .btn-outline { background: white; color: #4285F4; border: 2px solid #4285F4; }
-    .btn-upload-now { background: #EA4335; font-size: 17px; padding: 16px; box-shadow: 0 4px 12px rgba(234,67,53,0.3); }
-    .btn.disabled { background: #b0bec5; pointer-events: none; box-shadow: none; }
 
-    /* Cuadrícula de previsualización antes de subir */
-    .preview-section { display: none; margin-top: 20px; text-align: left; }
-    .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 14px; font-weight: bold; color: #555; }
-    .btn-limpiar { background: none; border: none; color: #d93025; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0; }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 12px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .btn {
+      background: var(--rosa-principal);
+      color: white;
+      padding: 14px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      border: none;
+      box-shadow: 0 4px 12px rgba(212, 129, 149, 0.25);
+      transition: all 0.2s ease;
+    }
+    .btn:hover { background: var(--rosa-oscuro); transform: translateY(-1px); }
+
+    .btn-salvia {
+      background: var(--salvia);
+      box-shadow: 0 4px 12px rgba(143, 166, 145, 0.25);
+    }
+    .btn-salvia:hover { background: var(--salvia-oscuro); }
+
+    .btn-dark {
+      background: #4A4445;
+      box-shadow: 0 4px 12px rgba(74, 68, 69, 0.2);
+    }
+    .btn-dark:hover { background: #332E2F; }
+
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--rosa-oscuro);
+      border: 1.5px solid var(--rosa-borde);
+      box-shadow: none;
+    }
+    .btn-outline:hover {
+      background: var(--rosa-suave);
+      border-color: var(--rosa-principal);
+    }
+
+    .btn-upload-now {
+      background: linear-gradient(135deg, #D48195 0%, #B86277 100%);
+      font-size: 16px;
+      padding: 15px;
+      box-shadow: 0 6px 16px rgba(184, 98, 119, 0.35);
+    }
+
+    .btn.disabled {
+      background: #D8CFD1;
+      pointer-events: none;
+      box-shadow: none;
+    }
+
+    /* Cuadrícula de previsualización */
+    .preview-section { display: none; margin-top: 20px; text-align: left; position: relative; z-index: 2; }
+    .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: var(--texto-suave); }
+    .btn-limpiar { background: none; border: none; color: var(--rosa-oscuro); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0; font-family: 'Nunito', sans-serif; }
     .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
-    .preview-item { position: relative; width: 100%; padding-top: 100%; border-radius: 8px; overflow: hidden; background: #eee; border: 1px solid #ddd; }
+    .preview-item { position: relative; width: 100%; padding-top: 100%; border-radius: 10px; overflow: hidden; background: var(--rosa-suave); border: 1.5px solid var(--rosa-borde); }
     .preview-item img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-    .btn-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.75); color: white; border: none; width: 24px; height: 24px; border-radius: 50%; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
-    .btn-remove:hover { background: #d93025; }
+    .btn-remove { position: absolute; top: 4px; right: 4px; background: rgba(44, 42, 41, 0.78); color: white; border: none; width: 24px; height: 24px; border-radius: 50%; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .btn-remove:hover { background: var(--rosa-oscuro); }
 
-    /* Barra de progreso visual */
-    .progress-container { display: none; width: 100%; background: #e0e0e0; border-radius: 8px; overflow: hidden; height: 12px; margin-top: 18px; }
-    .progress-bar { height: 100%; width: 0%; background: #34A853; transition: width 0.25s ease; }
-    
-    #estado { margin-top: 14px; font-weight: bold; line-height: 1.5; word-break: break-word; font-size: 15px; }
-    .error-box { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px; text-align: left; font-family: monospace; }
+    /* Barra de progreso */
+    .progress-container { display: none; width: 100%; background: var(--rosa-suave); border-radius: 10px; overflow: hidden; height: 10px; margin-top: 18px; position: relative; z-index: 2; }
+    .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--rosa-principal), var(--salvia)); transition: width 0.25s ease; }
+
+    #estado { margin-top: 14px; font-weight: 700; line-height: 1.5; word-break: break-word; font-size: 15px; color: var(--texto-oscuro); position: relative; z-index: 2; }
+    .error-box { background: #FFF0F2; color: #A63A50; border: 1px solid #EBC0C8; padding: 12px; border-radius: 10px; margin-top: 15px; font-size: 12px; text-align: left; font-family: monospace; position: relative; z-index: 2; }
+
+    .footer-paw {
+      margin-top: 18px;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 15px;
+      color: var(--texto-suave);
+    }
   </style>
 </head>
 <body>
+
+  <!-- Rama Sakura Superior Derecha -->
+  <svg class="sakura-corner sakura-top-right" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M210 15 C160 35, 120 65, 70 95 M145 48 C135 28, 125 18, 110 10 M115 68 C100 78, 88 92, 82 110" stroke="#B59E9A" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Flores de cerezo -->
+    <g transform="translate(145, 45)">
+      <circle cx="0" cy="-10" r="8" fill="#F6D1D8" opacity="0.85"/>
+      <circle cx="9" cy="-3" r="8" fill="#F9DFE4" opacity="0.9"/>
+      <circle cx="6" cy="8" r="8" fill="#F6D1D8" opacity="0.85"/>
+      <circle cx="-6" cy="8" r="8" fill="#F9DFE4" opacity="0.9"/>
+      <circle cx="-9" cy="-3" r="8" fill="#F6D1D8" opacity="0.85"/>
+      <circle cx="0" cy="0" r="3.5" fill="#D48195"/>
+    </g>
+    <g transform="translate(105, 18) scale(0.75)">
+      <circle cx="0" cy="-10" r="8" fill="#F9DFE4"/>
+      <circle cx="9" cy="-3" r="8" fill="#F6D1D8"/>
+      <circle cx="6" cy="8" r="8" fill="#F9DFE4"/>
+      <circle cx="-6" cy="8" r="8" fill="#F6D1D8"/>
+      <circle cx="-9" cy="-3" r="8" fill="#F9DFE4"/>
+      <circle cx="0" cy="0" r="3.5" fill="#D48195"/>
+    </g>
+    <g transform="translate(75, 95) scale(0.85)">
+      <circle cx="0" cy="-10" r="8" fill="#F6D1D8"/>
+      <circle cx="9" cy="-3" r="8" fill="#F9DFE4"/>
+      <circle cx="6" cy="8" r="8" fill="#F6D1D8"/>
+      <circle cx="-6" cy="8" r="8" fill="#F9DFE4"/>
+      <circle cx="-9" cy="-3" r="8" fill="#F6D1D8"/>
+      <circle cx="0" cy="0" r="3.5" fill="#D48195"/>
+    </g>
+    <!-- Pétalos sueltos -->
+    <ellipse cx="45" cy="60" rx="5" ry="3" transform="rotate(-25 45 60)" fill="#F4C6D0" opacity="0.7"/>
+    <ellipse cx="130" cy="105" rx="4" ry="2.5" transform="rotate(35 130 105)" fill="#F4C6D0" opacity="0.6"/>
+  </svg>
+
+  <!-- Rama Sakura Inferior Izquierda -->
+  <svg class="sakura-corner sakura-bottom-left" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M210 15 C160 35, 120 65, 70 95 M145 48 C135 28, 125 18, 110 10 M115 68 C100 78, 88 92, 82 110" stroke="#B59E9A" stroke-width="2.5" stroke-linecap="round"/>
+    <g transform="translate(145, 45)">
+      <circle cx="0" cy="-10" r="8" fill="#F6D1D8" opacity="0.85"/>
+      <circle cx="9" cy="-3" r="8" fill="#F9DFE4" opacity="0.9"/>
+      <circle cx="6" cy="8" r="8" fill="#F6D1D8" opacity="0.85"/>
+      <circle cx="-6" cy="8" r="8" fill="#F9DFE4" opacity="0.9"/>
+      <circle cx="-9" cy="-3" r="8" fill="#F6D1D8" opacity="0.85"/>
+      <circle cx="0" cy="0" r="3.5" fill="#D48195"/>
+    </g>
+    <g transform="translate(80, 98) scale(0.8)">
+      <circle cx="0" cy="-10" r="8" fill="#F9DFE4"/>
+      <circle cx="9" cy="-3" r="8" fill="#F6D1D8"/>
+      <circle cx="6" cy="8" r="8" fill="#F9DFE4"/>
+      <circle cx="-6" cy="8" r="8" fill="#F6D1D8"/>
+      <circle cx="-9" cy="-3" r="8" fill="#F9DFE4"/>
+      <circle cx="0" cy="0" r="3.5" fill="#D48195"/>
+    </g>
+    <ellipse cx="55" cy="50" rx="5" ry="3" transform="rotate(20 55 50)" fill="#F4C6D0" opacity="0.7"/>
+  </svg>
+
   <div class="card">
-    <h2>📸 Comparte tus fotos</h2>
-    <p id="subtitulo">Toma varias fotos seguidas o elige de tu galería, revísalas y súbelas juntas.</p>
+    <!-- Ilustración minimalista de gatitos novios (boina y velo floral) -->
+    <svg class="cat-header" viewBox="0 0 160 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Gatito Novio (izquierda con boina gris) -->
+      <g transform="translate(22, 10)">
+        <!-- Orejas -->
+        <path d="M12 28 L8 10 L24 20 Z" fill="#E8C39E" stroke="#6E6562" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M48 28 L52 10 L36 20 Z" fill="#E8C39E" stroke="#6E6562" stroke-width="1.8" stroke-linejoin="round"/>
+        <!-- Cabeza -->
+        <ellipse cx="30" cy="36" rx="23" ry="19" fill="#FFFDFB" stroke="#6E6562" stroke-width="1.8"/>
+        <!-- Manchas naranjas suaves -->
+        <path d="M9 32 C12 22, 22 20, 27 25 L22 34 Z" fill="#E8C39E" opacity="0.75"/>
+        <path d="M51 32 C48 22, 38 20, 33 25 L38 34 Z" fill="#E8C39E" opacity="0.75"/>
+        <!-- Boina gris estilo invitación -->
+        <path d="M9 23 C12 10, 46 8, 52 21 C44 25, 16 26, 9 23 Z" fill="#6D7072" stroke="#4D5052" stroke-width="1.6"/>
+        <path d="M16 24 C25 27, 42 26, 51 22" stroke="#4D5052" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- Ojos y hociquito -->
+        <circle cx="21" cy="37" r="2.6" fill="#4A4445"/>
+        <circle cx="39" cy="37" r="2.6" fill="#4A4445"/>
+        <path d="M28 42 L32 42 L30 44.5 Z" fill="#D48195"/>
+        <path d="M26 46 Q30 49 30 44.5 Q30 49 34 46" stroke="#6E6562" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <!-- Corbatín -->
+        <path d="M23 56 L30 59 L23 62 Z M37 56 L30 59 L37 62 Z" fill="#6D7072"/>
+      </g>
+
+      <!-- Corazón central flotante -->
+      <path d="M80 24 C80 20, 74 18, 74 23 C74 27, 80 31, 80 31 C80 31, 86 27, 86 23 C86 18, 80 20, 80 24 Z" fill="#E598AA"/>
+
+      <!-- Gatita Novia (derecha con velo y flores rosas) -->
+      <g transform="translate(82, 10)">
+        <!-- Velo translúcido -->
+        <path d="M10 24 C2 35, 2 55, 6 65 L54 65 C58 55, 58 35, 50 24 Z" fill="#F2F5F7" stroke="#C5CDD1" stroke-width="1.3"/>
+        <!-- Orejas -->
+        <path d="M12 28 L8 10 L24 20 Z" fill="#F2D4B3" stroke="#6E6562" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M48 28 L52 10 L36 20 Z" fill="#F2D4B3" stroke="#6E6562" stroke-width="1.8" stroke-linejoin="round"/>
+        <!-- Cabeza -->
+        <ellipse cx="30" cy="36" rx="23" ry="19" fill="#FFF8EE" stroke="#6E6562" stroke-width="1.8"/>
+        <!-- Flores en las orejas -->
+        <circle cx="10" cy="21" r="5" fill="#F4C6D0" stroke="#D48195" stroke-width="1"/>
+        <circle cx="50" cy="21" r="5" fill="#F4C6D0" stroke="#D48195" stroke-width="1"/>
+        <!-- Ojos y hociquito -->
+        <circle cx="21" cy="37" r="2.6" fill="#4A4445"/>
+        <circle cx="39" cy="37" r="2.6" fill="#4A4445"/>
+        <path d="M28 42 L32 42 L30 44.5 Z" fill="#D48195"/>
+        <path d="M26 46 Q30 49 30 44.5 Q30 49 34 46" stroke="#6E6562" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <!-- Ramito floral -->
+        <circle cx="26" cy="58" r="4" fill="#F4C6D0"/>
+        <circle cx="34" cy="58" r="4" fill="#E8A5B5"/>
+        <circle cx="30" cy="54" r="4" fill="#B8D0BA"/>
+      </g>
+    </svg>
+
+    <h1 class="nombres-novios">Pablo y María José</h1>
+    <div class="subtitulo-boda">Nuestro Álbum de Boda</div>
+    
+    <div class="divider">🐾</div>
+
+    <p class="instruccion" id="subtitulo">Captura los mejores momentos de nuestra celebración o súbelos desde tu galería para compartirlos con nosotros.</p>
     
     <!-- Controles de captura y selección -->
     <div class="btn-group" id="controlesSeleccion">
       <label class="btn" id="btnCamara">
-        📷 Tomar foto
+        📷 Tomar foto ahora
         <input type="file" id="archivoCamara" accept="image/*" capture="environment" onchange="agregarALaCola(this)">
       </label>
 
-      <label class="btn btn-green" id="btnGaleria">
+      <label class="btn btn-salvia" id="btnGaleria">
         🖼️ Elegir de la galería
         <input type="file" id="archivoGaleria" accept="image/*" multiple onchange="agregarALaCola(this)">
       </label>
 
-      <a href="galeria.html" id="btnVerAlbumInicial" class="btn btn-outline" style="margin-top: 4px;">👀 Ver álbum actual</a>
+      <a href="galeria.html" id="btnVerAlbumInicial" class="btn btn-outline" style="margin-top: 4px;">
+        🌸 Ver álbum de recuerdos
+      </a>
     </div>
 
     <!-- Vista previa de fotos listas para subir -->
     <div class="preview-section" id="seccionPreview">
       <div class="preview-header">
         <span id="contadorCola">Fotos listas (0)</span>
-        <button type="button" class="btn-limpiar" onclick="vaciarCola()">Borrar todas</button>
+        <button type="button" class="btn-limpiar" onclick="vaciarCola()">Quitar todas</button>
       </div>
       
       <div class="preview-grid" id="gridPreview"></div>
 
       <button type="button" class="btn btn-upload-now" id="btnConfirmarSubida" onclick="subirColaCompleta()">
-        🚀 Subir fotos al álbum
+        💌 Subir fotos al álbum
       </button>
     </div>
 
@@ -77,9 +374,11 @@
 
     <!-- Opciones posteriores a la subida -->
     <div class="btn-group" id="opcionesPostSubida" style="display: none;">
-      <button class="btn" onclick="reiniciarFormulario()">➕ Añadir más archivos</button>
-      <a href="galeria.html" class="btn btn-dark">🖼️ Ver galería</a>
+      <button class="btn" onclick="reiniciarFormulario()">➕ Añadir más recuerdos</button>
+      <a href="galeria.html" class="btn btn-dark">🌸 Ver galería completa</a>
     </div>
+
+    <div class="footer-paw">Con cariño, Pablo, María José y sus gatitos 🐾</div>
   </div>
 
   <script>
@@ -88,7 +387,6 @@
     const CALIDAD_JPEG = 0.72;
     const SUBIDAS_SIMULTANEAS = 3;
 
-    // Almacena objetos { file, previewUrl } antes de subir
     let colaArchivos = [];
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -106,7 +404,6 @@
         });
       });
 
-      // Limpiar input para permitir volver a tomar otra foto inmediatamente
       input.value = '';
       renderizarVistaPrevia();
     }
@@ -135,20 +432,19 @@
 
       if (colaArchivos.length === 0) {
         seccionPreview.style.display = 'none';
-        btnCamara.childNodes[0].nodeValue = '📷 Tomar foto ';
-        btnVerAlbumInicial.style.display = 'block';
+        btnCamara.childNodes[0].nodeValue = '📷 Tomar foto ahora ';
+        btnVerAlbumInicial.style.display = 'flex';
         return;
       }
 
-      // Cambiar texto del botón de cámara para invitar a seguir tomando fotos
       btnCamara.childNodes[0].nodeValue = '📷 Tomar otra foto ';
       btnVerAlbumInicial.style.display = 'none';
       seccionPreview.style.display = 'block';
 
       contadorCola.innerText = `Fotos seleccionadas (${colaArchivos.length})`;
       btnConfirmar.innerText = colaArchivos.length === 1 
-        ? '🚀 Subir 1 foto al álbum' 
-        : `🚀 Subir ${colaArchivos.length} fotos al álbum`;
+        ? '💌 Subir 1 foto al álbum' 
+        : `💌 Subir ${colaArchivos.length} fotos al álbum`;
 
       colaArchivos.forEach((item, index) => {
         const div = document.createElement('div');
@@ -194,7 +490,6 @@
       const barraContenedor = document.getElementById('barraContenedor');
       const barraProgreso = document.getElementById('barraProgreso');
 
-      // Ocultar selección y vista previa durante la subida
       controlesSeleccion.style.display = 'none';
       seccionPreview.style.display = 'none';
       subtitulo.style.display = 'none';
@@ -210,7 +505,7 @@
       let errores = [];
       let indiceCola = 0;
 
-      estado.innerText = `Preparando y subiendo ${total} foto(s)... ⚡`;
+      estado.innerText = `Guardando ${total} recuerdo(s)... 🌸`;
 
       async function trabajador() {
         while (indiceCola < total) {
@@ -244,7 +539,7 @@
             completadas++;
             const porcentaje = Math.round((completadas / total) * 100);
             barraProgreso.style.width = `${porcentaje}%`;
-            estado.innerText = `Subiendo: ${completadas} de ${total} (${porcentaje}%) ⏳`;
+            estado.innerText = `Subiendo: ${completadas} de ${total} (${porcentaje}%) 🌸`;
           }
         }
       }
@@ -264,11 +559,10 @@
         return;
       }
 
-      // Limpiar memoria de vistas previas tras subida exitosa
       vaciarCola();
 
       const exitosas = total - errores.length;
-      estado.innerText = `✅ ¡Listo! Se subieron ${exitosas} de ${total} foto(s) al álbum.`;
+      estado.innerText = `✨ ¡Muchas gracias! Se guardaron ${exitosas} recuerdo(s) en nuestro álbum.`;
       if (errores.length > 0) {
         detalleError.style.display = 'block';
         detalleError.innerText = `Algunas fotos fallaron:\n${errores.join('\n')}`;
