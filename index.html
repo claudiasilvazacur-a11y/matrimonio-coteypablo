@@ -1,20 +1,31 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Subir Fotos al Álbum</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; color: #333; margin: 0; }
-    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 40px auto; }
+    body { font-family: sans-serif; text-align: center; padding: 16px; background: #f4f4f9; color: #333; margin: 0; }
+    .card { background: white; padding: 25px 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 440px; margin: 20px auto; }
     input[type="file"] { display: none; }
-    .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
-    .btn { background: #4285F4; color: white; padding: 15px 20px; border-radius: 8px; cursor: pointer; display: block; font-size: 16px; font-weight: bold; text-decoration: none; border: none; transition: background 0.2s; }
+    .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+    .btn { background: #4285F4; color: white; padding: 14px 18px; border-radius: 8px; cursor: pointer; display: block; font-size: 16px; font-weight: bold; text-decoration: none; border: none; transition: background 0.2s; }
     .btn-green { background: #34A853; }
     .btn-dark { background: #202124; }
     .btn-outline { background: white; color: #4285F4; border: 2px solid #4285F4; }
-    .btn.disabled { background: #b0bec5; pointer-events: none; }
-    
+    .btn-upload-now { background: #EA4335; font-size: 17px; padding: 16px; box-shadow: 0 4px 12px rgba(234,67,53,0.3); }
+    .btn.disabled { background: #b0bec5; pointer-events: none; box-shadow: none; }
+
+    /* Cuadrícula de previsualización antes de subir */
+    .preview-section { display: none; margin-top: 20px; text-align: left; }
+    .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 14px; font-weight: bold; color: #555; }
+    .btn-limpiar { background: none; border: none; color: #d93025; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0; }
+    .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .preview-item { position: relative; width: 100%; padding-top: 100%; border-radius: 8px; overflow: hidden; background: #eee; border: 1px solid #ddd; }
+    .preview-item img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    .btn-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.75); color: white; border: none; width: 24px; height: 24px; border-radius: 50%; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .btn-remove:hover { background: #d93025; }
+
     /* Barra de progreso visual */
     .progress-container { display: none; width: 100%; background: #e0e0e0; border-radius: 8px; overflow: hidden; height: 12px; margin-top: 18px; }
     .progress-bar { height: 100%; width: 0%; background: #34A853; transition: width 0.25s ease; }
@@ -26,21 +37,35 @@
 <body>
   <div class="card">
     <h2>📸 Comparte tus fotos</h2>
-    <p id="subtitulo">Toma una foto en este momento o selecciona varias desde tu galería.</p>
+    <p id="subtitulo">Toma varias fotos seguidas o elige de tu galería, revísalas y súbelas juntas.</p>
     
-    <!-- Controles iniciales de subida -->
-    <div class="btn-group" id="controlesSubida">
+    <!-- Controles de captura y selección -->
+    <div class="btn-group" id="controlesSeleccion">
       <label class="btn" id="btnCamara">
-        📷 Tomar foto ahora
-        <input type="file" id="archivoCamara" accept="image/*" capture="environment" onchange="procesarArchivos(this)">
+        📷 Tomar foto
+        <input type="file" id="archivoCamara" accept="image/*" capture="environment" onchange="agregarALaCola(this)">
       </label>
 
       <label class="btn btn-green" id="btnGaleria">
         🖼️ Elegir de la galería
-        <input type="file" id="archivoGaleria" accept="image/*" multiple onchange="procesarArchivos(this)">
+        <input type="file" id="archivoGaleria" accept="image/*" multiple onchange="agregarALaCola(this)">
       </label>
 
-      <a href="galeria.html" class="btn btn-outline" style="margin-top: 8px;">👀 Ver álbum actual</a>
+      <a href="galeria.html" id="btnVerAlbumInicial" class="btn btn-outline" style="margin-top: 4px;">👀 Ver álbum actual</a>
+    </div>
+
+    <!-- Vista previa de fotos listas para subir -->
+    <div class="preview-section" id="seccionPreview">
+      <div class="preview-header">
+        <span id="contadorCola">Fotos listas (0)</span>
+        <button type="button" class="btn-limpiar" onclick="vaciarCola()">Borrar todas</button>
+      </div>
+      
+      <div class="preview-grid" id="gridPreview"></div>
+
+      <button type="button" class="btn btn-upload-now" id="btnConfirmarSubida" onclick="subirColaCompleta()">
+        🚀 Subir fotos al álbum
+      </button>
     </div>
 
     <!-- Barra de progreso y estado -->
@@ -59,18 +84,97 @@
 
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSjprB95VK-ywTb8fj1C9grSBJAL8L2amZ4GBZ5IigZduPtCMs-lBgivcYhLQBivlx/exec';
-    const MAX_DIMENSION = 1600; // Equilibrio óptimo entre nitidez HD y velocidad móvil
-    const CALIDAD_JPEG = 0.72;  // Reduce el peso ~75% sin pérdida visual perceptible
-    const SUBIDAS_SIMULTANEAS = 3; // Sube 3 fotos en paralelo a la vez
+    const MAX_DIMENSION = 1600;
+    const CALIDAD_JPEG = 0.72;
+    const SUBIDAS_SIMULTANEAS = 3;
 
-    // Precalentar servidor de Google Apps Script apenas abre la página
+    // Almacena objetos { file, previewUrl } antes de subir
+    let colaArchivos = [];
+
     window.addEventListener('DOMContentLoaded', () => {
       fetch(SCRIPT_URL).catch(() => {});
     });
 
+    function agregarALaCola(input) {
+      const archivos = Array.from(input.files);
+      if (archivos.length === 0) return;
+
+      archivos.forEach(file => {
+        colaArchivos.push({
+          file: file,
+          previewUrl: URL.createObjectURL(file)
+        });
+      });
+
+      // Limpiar input para permitir volver a tomar otra foto inmediatamente
+      input.value = '';
+      renderizarVistaPrevia();
+    }
+
+    function eliminarDeCola(index) {
+      URL.revokeObjectURL(colaArchivos[index].previewUrl);
+      colaArchivos.splice(index, 1);
+      renderizarVistaPrevia();
+    }
+
+    function vaciarCola() {
+      colaArchivos.forEach(item => URL.revokeObjectURL(item.previewUrl));
+      colaArchivos = [];
+      renderizarVistaPrevia();
+    }
+
+    function renderizarVistaPrevia() {
+      const seccionPreview = document.getElementById('seccionPreview');
+      const gridPreview = document.getElementById('gridPreview');
+      const contadorCola = document.getElementById('contadorCola');
+      const btnConfirmar = document.getElementById('btnConfirmarSubida');
+      const btnCamara = document.getElementById('btnCamara');
+      const btnVerAlbumInicial = document.getElementById('btnVerAlbumInicial');
+
+      gridPreview.innerHTML = '';
+
+      if (colaArchivos.length === 0) {
+        seccionPreview.style.display = 'none';
+        btnCamara.childNodes[0].nodeValue = '📷 Tomar foto ';
+        btnVerAlbumInicial.style.display = 'block';
+        return;
+      }
+
+      // Cambiar texto del botón de cámara para invitar a seguir tomando fotos
+      btnCamara.childNodes[0].nodeValue = '📷 Tomar otra foto ';
+      btnVerAlbumInicial.style.display = 'none';
+      seccionPreview.style.display = 'block';
+
+      contadorCola.innerText = `Fotos seleccionadas (${colaArchivos.length})`;
+      btnConfirmar.innerText = colaArchivos.length === 1 
+        ? '🚀 Subir 1 foto al álbum' 
+        : `🚀 Subir ${colaArchivos.length} fotos al álbum`;
+
+      colaArchivos.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'preview-item';
+
+        const img = document.createElement('img');
+        img.src = item.previewUrl;
+        img.alt = `Vista previa ${index + 1}`;
+
+        const btnDel = document.createElement('button');
+        btnDel.type = 'button';
+        btnDel.className = 'btn-remove';
+        btnDel.innerHTML = '&times;';
+        btnDel.setAttribute('aria-label', 'Eliminar foto');
+        btnDel.onclick = () => eliminarDeCola(index);
+
+        div.appendChild(img);
+        div.appendChild(btnDel);
+        gridPreview.appendChild(div);
+      });
+    }
+
     function reiniciarFormulario() {
+      vaciarCola();
       document.getElementById('opcionesPostSubida').style.display = 'none';
-      document.getElementById('controlesSubida').style.display = 'flex';
+      document.getElementById('controlesSeleccion').style.display = 'flex';
       document.getElementById('subtitulo').style.display = 'block';
       document.getElementById('barraContenedor').style.display = 'none';
       document.getElementById('barraProgreso').style.width = '0%';
@@ -78,40 +182,40 @@
       document.getElementById('detalleError').style.display = 'none';
     }
 
-    async function procesarArchivos(input) {
+    async function subirColaCompleta() {
+      if (colaArchivos.length === 0) return;
+
       const estado = document.getElementById('estado');
       const detalleError = document.getElementById('detalleError');
-      const controlesSubida = document.getElementById('controlesSubida');
+      const controlesSeleccion = document.getElementById('controlesSeleccion');
+      const seccionPreview = document.getElementById('seccionPreview');
       const opcionesPostSubida = document.getElementById('opcionesPostSubida');
       const subtitulo = document.getElementById('subtitulo');
-      const btnCamara = document.getElementById('btnCamara');
-      const btnGaleria = document.getElementById('btnGaleria');
       const barraContenedor = document.getElementById('barraContenedor');
       const barraProgreso = document.getElementById('barraProgreso');
-      
-      const archivos = Array.from(input.files);
-      if (archivos.length === 0) return;
 
-      btnCamara.classList.add('disabled');
-      btnGaleria.classList.add('disabled');
+      // Ocultar selección y vista previa durante la subida
+      controlesSeleccion.style.display = 'none';
+      seccionPreview.style.display = 'none';
+      subtitulo.style.display = 'none';
       detalleError.style.display = 'none';
       detalleError.innerText = '';
+      
       barraContenedor.style.display = 'block';
       barraProgreso.style.width = '5%';
 
+      const lote = [...colaArchivos];
+      const total = lote.length;
       let completadas = 0;
       let errores = [];
-      const total = archivos.length;
+      let indiceCola = 0;
 
       estado.innerText = `Preparando y subiendo ${total} foto(s)... ⚡`;
-
-      // Cola de trabajadores en paralelo (sube de a 3 fotos simultáneas)
-      let indiceCola = 0;
 
       async function trabajador() {
         while (indiceCola < total) {
           const idx = indiceCola++;
-          const file = archivos[idx];
+          const file = lote[idx].file;
           try {
             const base64Comprimido = await comprimirImagen(file);
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -145,27 +249,24 @@
         }
       }
 
-      // Ejecutar trabajadores en paralelo
       const numHilos = Math.min(SUBIDAS_SIMULTANEAS, total);
       const hilos = Array.from({ length: numHilos }, () => trabajador());
       await Promise.all(hilos);
 
-      input.value = '';
-      btnCamara.classList.remove('disabled');
-      btnGaleria.classList.remove('disabled');
+      barraContenedor.style.display = 'none';
 
       if (errores.length > 0 && completadas === errores.length) {
-        barraContenedor.style.display = 'none';
         estado.innerText = `❌ No se pudieron subir las fotos.`;
         detalleError.style.display = 'block';
         detalleError.innerText = errores.join('\n');
+        controlesSeleccion.style.display = 'flex';
+        seccionPreview.style.display = 'block';
         return;
       }
 
-      controlesSubida.style.display = 'none';
-      subtitulo.style.display = 'none';
-      barraContenedor.style.display = 'none';
-      
+      // Limpiar memoria de vistas previas tras subida exitosa
+      vaciarCola();
+
       const exitosas = total - errores.length;
       estado.innerText = `✅ ¡Listo! Se subieron ${exitosas} de ${total} foto(s) al álbum.`;
       if (errores.length > 0) {
@@ -177,7 +278,6 @@
 
     function comprimirImagen(file) {
       return new Promise((resolve, reject) => {
-        // createObjectURL es mucho más rápido y usa menos RAM móvil que FileReader
         const objectUrl = URL.createObjectURL(file);
         const img = new Image();
         
