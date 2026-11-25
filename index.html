@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -14,7 +14,12 @@
     .btn-dark { background: #202124; }
     .btn-outline { background: white; color: #4285F4; border: 2px solid #4285F4; }
     .btn.disabled { background: #b0bec5; pointer-events: none; }
-    #estado { margin-top: 20px; font-weight: bold; line-height: 1.5; word-break: break-word; font-size: 16px; }
+    
+    /* Barra de progreso visual */
+    .progress-container { display: none; width: 100%; background: #e0e0e0; border-radius: 8px; overflow: hidden; height: 12px; margin-top: 18px; }
+    .progress-bar { height: 100%; width: 0%; background: #34A853; transition: width 0.25s ease; }
+    
+    #estado { margin-top: 14px; font-weight: bold; line-height: 1.5; word-break: break-word; font-size: 15px; }
     .error-box { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px; text-align: left; font-family: monospace; }
   </style>
 </head>
@@ -38,7 +43,10 @@
       <a href="galeria.html" class="btn btn-outline" style="margin-top: 8px;">👀 Ver álbum actual</a>
     </div>
 
-    <!-- Estado de progreso / éxito -->
+    <!-- Barra de progreso y estado -->
+    <div class="progress-container" id="barraContenedor">
+      <div class="progress-bar" id="barraProgreso"></div>
+    </div>
     <div id="estado"></div>
     <div id="detalleError" class="error-box" style="display: none;"></div>
 
@@ -51,13 +59,21 @@
 
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSjprB95VK-ywTb8fj1C9grSBJAL8L2amZ4GBZ5IigZduPtCMs-lBgivcYhLQBivlx/exec';
-    const MAX_DIMENSION = 1920;
-    const CALIDAD_JPEG = 0.82;
+    const MAX_DIMENSION = 1600; // Equilibrio óptimo entre nitidez HD y velocidad móvil
+    const CALIDAD_JPEG = 0.72;  // Reduce el peso ~75% sin pérdida visual perceptible
+    const SUBIDAS_SIMULTANEAS = 3; // Sube 3 fotos en paralelo a la vez
+
+    // Precalentar servidor de Google Apps Script apenas abre la página
+    window.addEventListener('DOMContentLoaded', () => {
+      fetch(SCRIPT_URL).catch(() => {});
+    });
 
     function reiniciarFormulario() {
       document.getElementById('opcionesPostSubida').style.display = 'none';
       document.getElementById('controlesSubida').style.display = 'flex';
       document.getElementById('subtitulo').style.display = 'block';
+      document.getElementById('barraContenedor').style.display = 'none';
+      document.getElementById('barraProgreso').style.width = '0%';
       document.getElementById('estado').innerText = '';
       document.getElementById('detalleError').style.display = 'none';
     }
@@ -70,101 +86,129 @@
       const subtitulo = document.getElementById('subtitulo');
       const btnCamara = document.getElementById('btnCamara');
       const btnGaleria = document.getElementById('btnGaleria');
+      const barraContenedor = document.getElementById('barraContenedor');
+      const barraProgreso = document.getElementById('barraProgreso');
+      
       const archivos = Array.from(input.files);
-      
       if (archivos.length === 0) return;
-      
+
       btnCamara.classList.add('disabled');
       btnGaleria.classList.add('disabled');
       detalleError.style.display = 'none';
       detalleError.innerText = '';
-      let subidas = 0;
+      barraContenedor.style.display = 'block';
+      barraProgreso.style.width = '5%';
 
-      for (const file of archivos) {
-        try {
-          estado.innerText = `Optimizando foto ${subidas + 1} de ${archivos.length}... 🔄`;
-          const base64Comprimido = await comprimirImagen(file);
-          
-          estado.innerText = `Subiendo foto ${subidas + 1} de ${archivos.length}... ⏳`;
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const baseName = file.name.replace(/\.[^/.]+$/, "");
-          const nombreFinal = `${baseName}_${timestamp}.jpg`;
+      let completadas = 0;
+      let errores = [];
+      const total = archivos.length;
 
-          const respuesta = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              base64Data: base64Comprimido,
-              fileName: nombreFinal,
-              mimeType: 'image/jpeg'
-            })
-          });
+      estado.innerText = `Preparando y subiendo ${total} foto(s)... ⚡`;
 
-          const textoRespuesta = await respuesta.text();
-          let resultado;
+      // Cola de trabajadores en paralelo (sube de a 3 fotos simultáneas)
+      let indiceCola = 0;
 
+      async function trabajador() {
+        while (indiceCola < total) {
+          const idx = indiceCola++;
+          const file = archivos[idx];
           try {
-            resultado = JSON.parse(textoRespuesta);
-          } catch (parseErr) {
-            throw new Error(`Google no devolvió JSON (HTTP ${respuesta.status}).`);
-          }
+            const base64Comprimido = await comprimirImagen(file);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const baseName = file.name.replace(/\.[^/.]+$/, "");
+            const nombreFinal = `${baseName}_${idx + 1}_${timestamp}.jpg`;
 
-          if (!resultado.exito) {
-            throw new Error(resultado.error || 'Error desconocido en Apps Script.');
-          }
+            const respuesta = await fetch(SCRIPT_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({
+                base64Data: base64Comprimido,
+                fileName: nombreFinal,
+                mimeType: 'image/jpeg'
+              })
+            });
 
-          subidas++;
-        } catch (err) {
-          estado.innerText = `❌ Falló la subida de "${file.name}"`;
-          detalleError.style.display = 'block';
-          detalleError.innerText = `Detalle técnico:\n${err.message}`;
-          btnCamara.classList.remove('disabled');
-          btnGaleria.classList.remove('disabled');
-          input.value = '';
-          return;
+            const textoRespuesta = await respuesta.text();
+            const resultado = JSON.parse(textoRespuesta);
+
+            if (!resultado.exito) {
+              throw new Error(resultado.error || 'Error en servidor.');
+            }
+          } catch (err) {
+            errores.push(`${file.name}: ${err.message}`);
+          } finally {
+            completadas++;
+            const porcentaje = Math.round((completadas / total) * 100);
+            barraProgreso.style.width = `${porcentaje}%`;
+            estado.innerText = `Subiendo: ${completadas} de ${total} (${porcentaje}%) ⏳`;
+          }
         }
       }
 
-      // Ocultar controles de subida y mostrar las 2 opciones solicitadas
+      // Ejecutar trabajadores en paralelo
+      const numHilos = Math.min(SUBIDAS_SIMULTANEAS, total);
+      const hilos = Array.from({ length: numHilos }, () => trabajador());
+      await Promise.all(hilos);
+
       input.value = '';
       btnCamara.classList.remove('disabled');
       btnGaleria.classList.remove('disabled');
+
+      if (errores.length > 0 && completadas === errores.length) {
+        barraContenedor.style.display = 'none';
+        estado.innerText = `❌ No se pudieron subir las fotos.`;
+        detalleError.style.display = 'block';
+        detalleError.innerText = errores.join('\n');
+        return;
+      }
+
       controlesSubida.style.display = 'none';
       subtitulo.style.display = 'none';
-      estado.innerText = `✅ ¡Listo! Se subieron ${subidas} foto(s) al álbum.`;
+      barraContenedor.style.display = 'none';
+      
+      const exitosas = total - errores.length;
+      estado.innerText = `✅ ¡Listo! Se subieron ${exitosas} de ${total} foto(s) al álbum.`;
+      if (errores.length > 0) {
+        detalleError.style.display = 'block';
+        detalleError.innerText = `Algunas fotos fallaron:\n${errores.join('\n')}`;
+      }
       opcionesPostSubida.style.display = 'flex';
     }
 
     function comprimirImagen(file) {
       return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-          const img = new Image();
-          img.onload = function() {
-            let width = img.width;
-            let height = img.height;
+        // createObjectURL es mucho más rápido y usa menos RAM móvil que FileReader
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        
+        img.onload = function() {
+          URL.revokeObjectURL(objectUrl);
+          let width = img.width;
+          let height = img.height;
 
-            if (width > height && width > MAX_DIMENSION) {
-              height = Math.round((height * MAX_DIMENSION) / width);
-              width = MAX_DIMENSION;
-            } else if (height > MAX_DIMENSION) {
-              width = Math.round((width * MAX_DIMENSION) / height);
-              height = MAX_DIMENSION;
-            }
+          if (width > height && width > MAX_DIMENSION) {
+            height = Math.round((height * MAX_DIMENSION) / width);
+            width = MAX_DIMENSION;
+          } else if (height > MAX_DIMENSION) {
+            width = Math.round((width * MAX_DIMENSION) / height);
+            height = MAX_DIMENSION;
+          }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
 
-            resolve(canvas.toDataURL('image/jpeg', CALIDAD_JPEG));
-          };
-          img.onerror = () => reject(new Error('No se pudo leer la imagen en el navegador.'));
-          img.src = event.target.result;
+          resolve(canvas.toDataURL('image/jpeg', CALIDAD_JPEG));
         };
-        reader.onerror = () => reject(new Error('Error al leer el archivo local.'));
-        reader.readAsDataURL(file);
+
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('No se pudo procesar la imagen.'));
+        };
+
+        img.src = objectUrl;
       });
     }
   </script>
